@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DepEd Infobot</title>
+  <style>
+    /* Import Google Font */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+    /* Reset & Global Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: #f7f7f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    /* Chat Widget Wrapper */
+    .wrapper {
+      width: 370px;
+      border-radius: 5px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      background: #fff;
+    }
+    .wrapper .title {
+      background: #007bff;
+      color: #fff;
+      text-align: center;
+      line-height: 2.5;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    /* Chat Box */
+    .wrapper .box {
+      border: 1px solid #efefef;
+      padding: 10px 15px;
+      min-height: 400px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .wrapper .box .item {
+      display: flex;
+      margin: 10px 0;
+      align-items: flex-end;
+    }
+    .wrapper .box .item .icon {
+      background: #007bff;
+      color: #fff;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 40px;
+      flex-shrink: 0;
+    }
+    .wrapper .box .item .msg {
+      background: #007bff;
+      color: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      margin-left: 10px;
+      max-width: 70%;
+      word-wrap: break-word;
+    }
+    .wrapper .box .item.right {
+      justify-content: flex-end;
+    }
+    .wrapper .box .item.right .msg {
+      background: #efefef;
+      color: #333;
+      margin-left: 0;
+      margin-right: 10px;
+    }
+    /* Typing Area */
+    .wrapper .typing-area {
+      background: #efefef;
+      padding: 10px;
+      border-top: 1px solid #efefef;
+      display: flex;
+      align-items: center;
+    }
+    .wrapper .typing-area .input-field {
+      width: 100%;
+      position: relative;
+    }
+    .wrapper .typing-area .input-field input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      outline: none;
+      padding-right: 70px;
+      transition: 0.3s ease;
+    }
+    .wrapper .typing-area .input-field input:focus {
+      border-color: #007bff;
+    }
+    .wrapper .typing-area .input-field button {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      background: transparent;
+      border: 1px solid #007bff;
+      padding: 5px 10px;
+      border-radius: 3px;
+      color: #007bff;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.3s ease;
+    }
+    .wrapper .typing-area .input-field button:hover {
+      background: #007bff;
+      color: #fff;
+    }
+    .wrapper .typing-area .input-field input:valid ~ button {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body>
+
+<div class="wrapper">
+  <div class="title">DepEd Infobot</div>
+  <div class="box" id="chat-messages">
+    <!-- Chat messages will appear here -->
+  </div>
+  <div class="typing-area">
+    <div class="input-field">
+      <input type="text" id="messageInput" placeholder="Type your question..." required />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Chat Trigger Webhook URL from n8n
+  const N8N_WEBHOOK_URL = "https://deped.depedtandagn8n.shop/webhook/5f1c0c82-0ff9-40c7-9e2e-b1a96ffe24cd/chat";
+  
+  // DOM Elements
+  const chatMessages = document.getElementById("chat-messages");
+  const messageInput = document.getElementById("messageInput");
+  const sendBtn = document.getElementById("sendBtn");
+  
+  // Append message to chat window
+  function addMessage(text, sender) {
+    const item = document.createElement("div");
+    item.classList.add("item");
+    if (sender === "user") {
+      item.classList.add("right");
+    }
+    
+    const icon = document.createElement("div");
+    icon.classList.add("icon");
+    icon.textContent = sender === "user" ? "U" : "B";
+    
+    const msg = document.createElement("div");
+    msg.classList.add("msg");
+    msg.textContent = text;
+    
+    if (sender === "user") {
+      item.appendChild(msg);
+      item.appendChild(icon);
+    } else {
+      item.appendChild(icon);
+      item.appendChild(msg);
+    }
+    chatMessages.appendChild(item);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+  
+  // Retrieve or generate sessionId
+  let sessionId = localStorage.getItem("chatSessionId");
+  if (!sessionId) {
+    sessionId = "session-" + Date.now();
+    localStorage.setItem("chatSessionId", sessionId);
+  }
+  
+  // Send message event handler
+  sendBtn.addEventListener("click", async () => {
+    const userMessage = messageInput.value.trim();
+    if (!userMessage) return;
+    
+    // Display user's message
+    addMessage(userMessage, "user");
+    messageInput.value = "";
+    
+    // Prepare payload
+    const payload = {
+      sessionId: sessionId,
+      action: "sendMessage",
+      chatInput: userMessage
+    };
+    
+    try {
+      const response = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      
+      // Extract reply (check both "reply" and "output")
+      let reply;
+      if (Array.isArray(data) && data.length && data[0].json) {
+        reply = data[0].json.reply || data[0].json.output;
+      } else {
+        reply = data.reply || data.output;
+      }
+      if (reply) {
+        addMessage(reply, "bot");
+      } else {
+        addMessage("No reply found: " + JSON.stringify(data), "bot");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      addMessage("Error sending message. Please try again.", "bot");
+    }
+  });
+</script>
+
+</body>
+</html>
